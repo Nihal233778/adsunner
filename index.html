@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>My Adsun TMA</title>
+    <!-- Connect to Telegram WebApp Script -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        /* CSS Styling */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .container {
+            max-width: 400px;
+            width: 100%;
+        }
+        .balance-box {
+            background-color: var(--tg-theme-secondary-bg-color, #f1f1f1);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .balance {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2ea6ff;
+        }
+        .rules-text {
+            font-size: 14px;
+            color: #888;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: var(--tg-theme-button-color, #2481cc);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            padding: 15px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            width: 100%;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 15px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #ff9800;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Welcome to My App</h2>
+        
+        <div class="balance-box">
+            <p>Your Balance</p>
+            <div class="balance" id="balanceDisplay">0</div>
+            <p>Points</p>
+        </div>
+
+        <!-- Rule 9: Clear Terms -->
+        <p class="rules-text">
+            Watch 1 Ad = 2 Points.<br>
+            Minimum Withdrawal = 3000 Points ($3.00)
+        </p>
+
+        <!-- Rule 3 & 5: Clear consent, no forced clicks -->
+        <button id="watchAdBtn">Watch Ad & Earn 2 Points</button>
+        
+        <p id="status"></p>
+    </div>
+
+    <script>
+        // Initialize Telegram WebApp
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Make the app full screen
+
+        // Variables
+        let currentBalance = 0; // In a real app, load this from your database
+        const rewardPerAd = 2;
+
+        const adButton = document.getElementById('watchAdBtn');
+        const balanceDisplay = document.getElementById('balanceDisplay');
+        const statusText = document.getElementById('status');
+
+        // Handle the Ad Button Click
+        adButton.addEventListener('click', () => {
+            // Disable button to prevent double-clicking
+            adButton.disabled = true;
+            statusText.innerText = "Loading Ad... Please wait.";
+
+            // --- THIS IS WHERE YOU INTEGRATE YOUR AD SDK ---
+            // Example: If you use an SDK like Adsgram or Monetag, you call it here.
+            
+            // For this example, we simulate an ad playing for 3 seconds
+            setTimeout(() => {
+                
+                // 1. Ad finished
+                statusText.innerText = "Ad finished! Reward added.";
+                
+                // 2. Update Balance
+                currentBalance += rewardPerAd;
+                balanceDisplay.innerText = currentBalance;
+                
+                // 3. Save to your database here (fetch API call)
+                // saveBalanceToDatabase(currentBalance);
+
+                // 4. Re-enable button after a short delay
+                setTimeout(() => {
+                    adButton.disabled = false;
+                    statusText.innerText = "";
+                }, 2000);
+
+            }, 3000); // Simulates a 3-second ad
+        });
+
+        // Rule 1: Make sure the app tells Telegram it's ready
+        tg.ready();
+    </script>
+</body>
+</html>
