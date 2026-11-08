@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>My Adsun TMA</title>
-    <!-- Connect to Telegram WebApp Script -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Adsun SDK -->
+    <script src="https://api.adsun.io/sdk.js"></script>
     <style>
-        /* CSS Styling */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--tg-theme-bg-color, #ffffff);
@@ -50,16 +50,35 @@
             width: 100%;
             cursor: pointer;
             transition: opacity 0.2s;
+            margin-bottom: 10px;
         }
         button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+        }
+        .secondary-btn {
+            background-color: #6c757d;
+        }
+        .task-btn {
+            background-color: #28a745;
         }
         #status {
             margin-top: 15px;
             font-size: 14px;
             font-weight: bold;
             color: #ff9800;
+            min-height: 20px;
+        }
+        adsun-task {
+            display: block;
+            margin: 10px 0;
+            padding: 15px;
+            background: var(--tg-theme-secondary-bg-color, #f1f1f1);
+            border-radius: 8px;
+        }
+        adsun-task button {
+            background-color: #28a745;
+            margin-top: 8px;
         }
     </style>
 </head>
@@ -74,64 +93,199 @@
             <p>Points</p>
         </div>
 
-        <!-- Rule 9: Clear Terms -->
         <p class="rules-text">
-            Watch 1 Ad = 2 Points.<br>
+            Rewarded Ad = +2 Points<br>
+            Task Ad = +5 Points<br>
             Minimum Withdrawal = 3000 Points ($3.00)
         </p>
 
-        <!-- Rule 3 & 5: Clear consent, no forced clicks -->
-        <button id="watchAdBtn">Watch Ad & Earn 2 Points</button>
+        <!-- Rewarded Ad -->
+        <button id="watchRewardedBtn">🎬 Watch Rewarded Ad (+2)</button>
+
+        <!-- Interstitial Ad -->
+        <button id="showInterstitialBtn" class="secondary-btn">📺 Show Interstitial Ad</button>
+
+        <!-- Task Ad (Web Component) -->
+        <adsun-task
+            id="taskAd"
+            data-block-id="50177"
+            data-debug="false"
+            data-tasks-count="1"
+            data-task-refetch-after="30"
+            data-force-campaign-id="">
+            <span slot="reward">+5 Points</span>
+            <button slot="button">Start Task</button>
+            <button slot="claim">Claim</button>
+            <span slot="done">Done ✓</span>
+        </adsun-task>
         
         <p id="status"></p>
     </div>
 
     <script>
-        // Initialize Telegram WebApp
+        // ---- Telegram Init ----
         const tg = window.Telegram.WebApp;
-        tg.expand(); // Make the app full screen
+        tg.expand();
 
-        // Variables
-        let currentBalance = 0; // In a real app, load this from your database
-        const rewardPerAd = 2;
+        // ---- App State ----
+        let currentBalance = 0;
+        const REWARD_REWARDED = 2;
+        const REWARD_TASK = 5;
 
-        const adButton = document.getElementById('watchAdBtn');
         const balanceDisplay = document.getElementById('balanceDisplay');
         const statusText = document.getElementById('status');
+        const watchRewardedBtn = document.getElementById('watchRewardedBtn');
+        const showInterstitialBtn = document.getElementById('showInterstitialBtn');
 
-        // Handle the Ad Button Click
-        adButton.addEventListener('click', () => {
-            // Disable button to prevent double-clicking
-            adButton.disabled = true;
-            statusText.innerText = "Loading Ad... Please wait.";
+        // Helper: update balance & UI
+        function addPoints(amount) {
+            currentBalance += amount;
+            balanceDisplay.innerText = currentBalance;
+            // TODO: persist to your backend
+            // fetch('/api/balance', { method:'POST', body: JSON.stringify({ balance: currentBalance }) });
+        }
 
-            // --- THIS IS WHERE YOU INTEGRATE YOUR AD SDK ---
-            // Example: If you use an SDK like Adsgram or Monetag, you call it here.
-            
-            // For this example, we simulate an ad playing for 3 seconds
-            setTimeout(() => {
-                
-                // 1. Ad finished
-                statusText.innerText = "Ad finished! Reward added.";
-                
-                // 2. Update Balance
-                currentBalance += rewardPerAd;
-                balanceDisplay.innerText = currentBalance;
-                
-                // 3. Save to your database here (fetch API call)
-                // saveBalanceToDatabase(currentBalance);
+        function setStatus(msg, timeout = 2500) {
+            statusText.innerText = msg;
+            if (timeout) setTimeout(() => statusText.innerText = '', timeout);
+        }
 
-                // 4. Re-enable button after a short delay
-                setTimeout(() => {
-                    adButton.disabled = false;
-                    statusText.innerText = "";
-                }, 2000);
-
-            }, 3000); // Simulates a 3-second ad
+        // ---- 1. REWARDED AD (blockId 50175) ----
+        const rewardedAd = window.Adsun.init({
+            blockId: "50175",
+            debug: false,
+            debugConsole: true,
         });
 
-        // Rule 1: Make sure the app tells Telegram it's ready
+        // Track whether reward was already given for this show() call
+        let rewardedGranted = false;
+
+        rewardedAd.addEventListener('onStart', (data) => {
+            console.log('Rewarded onStart', data);
+            rewardedGranted = false;
+        });
+
+        rewardedAd.addEventListener('onReward', (data) => {
+            console.log('Rewarded onReward', data);
+            if (!rewardedGranted) {
+                rewardedGranted = true;
+                addPoints(REWARD_REWARDED);
+                setStatus('✅ +2 Points earned!');
+            }
+        });
+
+        rewardedAd.addEventListener('onComplete', (data) => {
+            console.log('Rewarded onComplete', data);
+            watchRewardedBtn.disabled = false;
+        });
+
+        rewardedAd.addEventListener('onSkip', (data) => {
+            console.log('Rewarded onSkip', data);
+            setStatus('⚠️ Ad skipped — no reward.', 3000);
+            watchRewardedBtn.disabled = false;
+        });
+
+        rewardedAd.addEventListener('onError', (data) => {
+            console.warn('Rewarded onError', data);
+            setStatus('❌ Ad error. Try again.');
+            watchRewardedBtn.disabled = false;
+        });
+
+        // Fallback: if none of the terminal events fire, unlock after timeout
+        rewardedAd.addEventListener('onBannerNotFound', (data) => {
+            console.log('Rewarded onBannerNotFound', data);
+            setStatus('No ad available right now.');
+            watchRewardedBtn.disabled = false;
+        });
+
+        watchRewardedBtn.addEventListener('click', async () => {
+            watchRewardedBtn.disabled = true;
+            setStatus('Loading ad...', null);
+            try {
+                const result = await rewardedAd.show();
+                console.log('Rewarded result', result);
+                if (!rewardedGranted) setStatus('Ad closed.', 2000);
+            } catch (err) {
+                console.warn('Rewarded catch', err);
+                // err.state: 'load' | 'render' | 'playing' | 'destroy'
+                if (err && err.state === 'load') setStatus('Ad failed to load.');
+                else setStatus('Ad interrupted.', 2000);
+            } finally {
+                // Safety unlock in case events didn't fire
+                setTimeout(() => { watchRewardedBtn.disabled = false; }, 1500);
+            }
+        });
+
+        // ---- 2. INTERSTITIAL AD (blockId 50176) ----
+        const interstitialAd = window.Adsun.init({
+            blockId: "50176",
+            debug: false,
+            debugConsole: true,
+        });
+
+        ["onStart","onSkip","onReward","onComplete","onProgress","onShowNextBanner",
+         "onBannerNotFound","onNonStopShow","onTooLongSession","onNotSuitable","onError"]
+            .forEach((name) => interstitialAd.addEventListener(name, (d) => console.log('Interstitial', name, d)));
+
+        interstitialAd.addEventListener('onComplete', () => {
+            showInterstitialBtn.disabled = false;
+        });
+        interstitialAd.addEventListener('onSkip', () => {
+            showInterstitialBtn.disabled = false;
+        });
+        interstitialAd.addEventListener('onError', () => {
+            showInterstitialBtn.disabled = false;
+            setStatus('❌ Interstitial error.');
+        });
+
+        showInterstitialBtn.addEventListener('click', async () => {
+            showInterstitialBtn.disabled = true;
+            setStatus('Loading interstitial...', null);
+            try {
+                await interstitialAd.show();
+                setStatus('Interstitial shown.', 2000);
+            } catch (err) {
+                console.warn('Interstitial catch', err);
+                setStatus('Interstitial unavailable.', 2000);
+            } finally {
+                setTimeout(() => { showInterstitialBtn.disabled = false; }, 1500);
+            }
+        });
+
+        // ---- 3. TASK AD (blockId 50177) ----
+        const taskAd = document.getElementById('taskAd');
+        let taskRewarded = false;
+
+        taskAd.addEventListener('reward', (e) => {
+            console.log('Task reward', e);
+            if (!taskRewarded) {
+                taskRewarded = true;
+                addPoints(REWARD_TASK);
+                setStatus('✅ Task complete! +5 Points');
+            }
+        });
+
+        taskAd.addEventListener('onBannerNotFound', () => {
+            console.log('Task: banner not found');
+            taskAd.remove();
+            setStatus('Task ad unavailable.');
+        });
+
+        taskAd.addEventListener('onFastReturn', () => {
+            setStatus('⚠️ You returned too fast. Try again.', 3000);
+        });
+
+        taskAd.addEventListener('onTooLongSession', () => {
+            setStatus('Session too long. Please restart the app.', 4000);
+        });
+
+        taskAd.addEventListener('onError', (e) => {
+            console.warn('Task error', e.detail);
+        });
+
+        // ---- Init done ----
         tg.ready();
     </script>
 </body>
 </html>
+            
